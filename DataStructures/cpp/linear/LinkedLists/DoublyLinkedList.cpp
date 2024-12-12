@@ -465,12 +465,234 @@
      tail_ = current;
  }
  
- // Iterator methods
- template<typename T, typename Allocator>
- typename DoublyLinkedList<T, Allocator>::iterator
- DoublyLinkedList<T, Allocator>::begin() noexcept {
-     return iterator(head_);
- }
- 
- template<typename T, typename Allocator>
- typename DoublyLinkedList
+// Iterator methods
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::iterator
+DoublyLinkedList<T, Allocator>::begin() noexcept {
+    return iterator(head_);
+}
+
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::const_iterator
+DoublyLinkedList<T, Allocator>::begin() const noexcept {
+    return const_iterator(head_);
+}
+
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::const_iterator
+DoublyLinkedList<T, Allocator>::cbegin() const noexcept {
+    return const_iterator(head_);
+}
+
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::iterator
+DoublyLinkedList<T, Allocator>::end() noexcept {
+    return iterator(nullptr);
+}
+
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::const_iterator
+DoublyLinkedList<T, Allocator>::end() const noexcept {
+    return const_iterator(nullptr);
+}
+
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::const_iterator
+DoublyLinkedList<T, Allocator>::cend() const noexcept {
+    return const_iterator(nullptr);
+}
+
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::reverse_iterator
+DoublyLinkedList<T, Allocator>::rbegin() noexcept {
+    return reverse_iterator(end());
+}
+
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::const_reverse_iterator
+DoublyLinkedList<T, Allocator>::rbegin() const noexcept {
+    return const_reverse_iterator(end());
+}
+
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::reverse_iterator
+DoublyLinkedList<T, Allocator>::rend() noexcept {
+    return reverse_iterator(begin());
+}
+
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::const_reverse_iterator
+DoublyLinkedList<T, Allocator>::rend() const noexcept {
+    return const_reverse_iterator(begin());
+}
+
+// Helper methods
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::Node*
+DoublyLinkedList<T, Allocator>::create_node(const T& value) {
+    Node* node = NodeAllocTraits::allocate(node_alloc_, 1);
+    try {
+        NodeAllocTraits::construct(node_alloc_, node, value);
+    } catch (...) {
+        NodeAllocTraits::deallocate(node_alloc_, node, 1);
+        throw;
+    }
+    return node;
+}
+
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::Node*
+DoublyLinkedList<T, Allocator>::create_node(T&& value) {
+    Node* node = NodeAllocTraits::allocate(node_alloc_, 1);
+    try {
+        NodeAllocTraits::construct(node_alloc_, node, std::move(value));
+    } catch (...) {
+        NodeAllocTraits::deallocate(node_alloc_, node, 1);
+        throw;
+    }
+    return node;
+}
+
+template<typename T, typename Allocator>
+void DoublyLinkedList<T, Allocator>::destroy_node(Node* node) {
+    NodeAllocTraits::destroy(node_alloc_, node);
+    NodeAllocTraits::deallocate(node_alloc_, node, 1);
+}
+
+template<typename T, typename Allocator>
+void DoublyLinkedList<T, Allocator>::copy_from(const DoublyLinkedList& other) {
+    Node* current = other.head_;
+    while (current) {
+        push_back(current->data);
+        current = current->next;
+    }
+}
+
+template<typename T, typename Allocator>
+typename DoublyLinkedList<T, Allocator>::Node*
+DoublyLinkedList<T, Allocator>::merge_sort(Node* head) {
+    if (!head || !head->next) return head;
+    
+    // Find middle using slow and fast pointers
+    Node* slow = head;
+    Node* fast = head->next;
+    
+    while (fast && fast->next) {
+        slow = slow->next;
+        fast = fast->next->next;
+    }
+    
+    Node* right = slow->next;
+    slow->next = nullptr;
+    
+    // Recursively sort both halves
+    Node* left_sorted = merge_sort(head);
+    Node* right_sorted = merge_sort(right);
+    
+    // Merge the sorted halves
+    return merge_sorted_lists(left_sorted, right_sorted).first;
+}
+
+template<typename T, typename Allocator>
+std::pair<typename DoublyLinkedList<T, Allocator>::Node*,
+          typename DoublyLinkedList<T, Allocator>::Node*>
+DoublyLinkedList<T, Allocator>::merge_sorted_lists(Node* first, Node* second) {
+    if (!first) return {second, second};
+    if (!second) return {first, first};
+    
+    Node* result = nullptr;
+    Node* tail = nullptr;
+    
+    while (first && second) {
+        Node* next = nullptr;
+        if (first->data <= second->data) {
+            next = first;
+            first = first->next;
+        } else {
+            next = second;
+            second = second->next;
+        }
+        
+        if (!result) {
+            result = next;
+        } else {
+            tail->next = next;
+        }
+        
+        next->prev = tail;
+        tail = next;
+    }
+    
+    // Append remaining nodes
+    if (first) {
+        tail->next = first;
+        first->prev = tail;
+        while (tail->next) {
+            tail = tail->next;
+        }
+    }
+    if (second) {
+        tail->next = second;
+        second->prev = tail;
+        while (tail->next) {
+            tail = tail->next;
+        }
+    }
+    
+    return {result, tail};
+}
+
+// Operators
+template<typename T, typename Allocator>
+DoublyLinkedList<T, Allocator>&
+DoublyLinkedList<T, Allocator>::operator=(const DoublyLinkedList& other) {
+    if (this != &other) {
+        DoublyLinkedList temp(other);
+        std::swap(head_, temp.head_);
+        std::swap(tail_, temp.tail_);
+        std::swap(size_, temp.size_);
+        if (NodeAllocTraits::propagate_on_container_copy_assignment::value) {
+            node_alloc_ = other.node_alloc_;
+        }
+    }
+    return *this;
+}
+
+template<typename T, typename Allocator>
+DoublyLinkedList<T, Allocator>&
+DoublyLinkedList<T, Allocator>::operator=(DoublyLinkedList&& other) noexcept {
+    if (this != &other) {
+        clear();
+        head_ = other.head_;
+        tail_ = other.tail_;
+        size_ = other.size_;
+        if (NodeAllocTraits::propagate_on_container_move_assignment::value) {
+            node_alloc_ = std::move(other.node_alloc_);
+        }
+        other.head_ = nullptr;
+        other.tail_ = nullptr;
+        other.size_ = 0;
+    }
+    return *this;
+}
+
+template<typename T, typename Allocator>
+bool DoublyLinkedList<T, Allocator>::operator==(const DoublyLinkedList& other) const {
+    if (size_ != other.size_) return false;
+    
+    Node* current1 = head_;
+    Node* current2 = other.head_;
+    while (current1) {
+        if (current1->data != current2->data) return false;
+        current1 = current1->next;
+        current2 = current2->next;
+    }
+    return true;
+}
+
+template<typename T, typename Allocator>
+bool DoublyLinkedList<T, Allocator>::operator!=(const DoublyLinkedList& other) const {
+    return !(*this == other);
+}
+
+} // namespace ds
